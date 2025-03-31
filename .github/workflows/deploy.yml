@@ -1,0 +1,52 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches:
+      - main
+      - uat
+      - test
+      - prod
+  pull_request:
+    branches:
+      - main
+      - uat
+      - test
+      - prod
+
+jobs:
+  build-and-deploy:
+    name: Build, Push to ECR & Deploy to EKS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        run: |
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 746669237351.dkr.ecr.ap-south-1.amazonaws.com
+
+      - name: Build Docker Image
+        run: |
+          docker build -t react-app-test:latest .
+          docker tag react-app-test:latest 746669237351.dkr.ecr.ap-south-1.amazonaws.com/react-app-test:latest
+
+      - name: Push Docker Image to ECR
+        run: |
+          docker push 746669237351.dkr.ecr.ap-south-1.amazonaws.com/react-app-test:latest
+
+      - name: Update Kubernetes Deployment in EKS
+        run: |
+          aws eks --region ap-south-1 update-kubeconfig --name my-eks-cluster
+          kubectl set image deployment/react-app react-container=746669237351.dkr.ecr.ap-south-1.amazonaws.com/react-app-test:latest
+          kubectl rollout status deployment/react-app
+
