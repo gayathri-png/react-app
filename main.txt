@@ -5,3 +5,5 @@ npm -v
 cd /var/www/html/app
 npm i
 npm start
+dummy
+dummy1
